@@ -48,6 +48,7 @@ resource "local_file" "key1" {
    ]
 }
 ```
+![key pair](/img-1.png)
 
 * security-group:
 ```
