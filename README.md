@@ -26,7 +26,7 @@ Initial steps:
 
 Step 1: Creating the key and security group:
 * key-pair:
-`
+```
 resource "tls_private_key" "taskkey" {
  algorithm = "RSA"
  rsa_bits = 4096
@@ -46,4 +46,5 @@ resource "local_file" "key1" {
   depends_on = [
     aws_key_pair.key
    ]
-}`
+}
+```
