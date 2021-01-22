@@ -26,3 +26,24 @@ Initial steps:
 
 Step 1: Creating the key and security group:
 * key-pair:
+`
+resource "tls_private_key" "taskkey" {
+ algorithm = "RSA"
+ rsa_bits = 4096
+}
+
+resource "aws_key_pair" "key" {
+ key_name = "task1key"
+ public_key = "${tls_private_key.taskkey.public_key_openssh}"
+ depends_on = [
+    tls_private_key.taskkey
+    ]
+}
+
+resource "local_file" "key1" {
+ content = "${tls_private_key.taskkey.private_key_pem}"
+ filename = "task1key.pem"
+  depends_on = [
+    aws_key_pair.key
+   ]
+}`
