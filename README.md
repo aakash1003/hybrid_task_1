@@ -272,6 +272,7 @@ resource "null_resource" "nullRemote40" {
 
 
 * You can see the src in image tag is using the cloudfront url
+
 Extra:
 * To run the aws instance directly from terraform:
 ```
