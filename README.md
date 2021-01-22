@@ -48,7 +48,7 @@ resource "local_file" "key1" {
    ]
 }
 ```
-![key pair](/img-1.png)
+![key pair](https://github.com/aakash1003/terraform_with_AWS/blob/master/img-1.PNG)
 
 * security-group:
 ```
@@ -86,6 +86,9 @@ resource "aws_security_group" "new" {
 }
 ```
 
+![security group](https://github.com/aakash1003/terraform_with_AWS/blob/master/img-2.PNG)
+![security group](https://github.com/aakash1003/terraform_with_AWS/blob/master/img-3.PNG)
+
 ## Step 2 and 3: Launcing the EC2 with the key and security group made in step 1:
 ```
 resource "aws_instance" "web" {
@@ -121,6 +124,8 @@ resource "aws_instance" "web" {
     
 }
 ```
+
+![aws instance](https://github.com/aakash1003/terraform_with_AWS/blob/master/img-4.PNG)
 
 
 ## Step 4,5 and 6: Launch one volume(EBS) mount it and copy the github code into /var/www/html/:
@@ -166,7 +171,7 @@ provisioner "remote-exec" {
 }
 ```
 
-
+![ebs volume](https://github.com/aakash1003/terraform_with_AWS/blob/master/img-5.PNG)
 
 ## Step 7: Create S3 bucket, and copy/deploy the images from github repo into the s3 bucket and change the permission to public readable.
 ```
@@ -193,7 +198,7 @@ resource "aws_s3_bucket_object" "image" {
 }
 ```
 
-
+![s3 bucket](https://github.com/aakash1003/terraform_with_AWS/blob/master/img-6.PNG)
 
 ## Step 8: Create a Cloudfront using s3 bucket(which contains images) and use the Cloudfront URL to update in code in /var/www/html
 ```
@@ -268,7 +273,7 @@ resource "null_resource" "nullRemote40" {
 
 ```
 
-
+![cloudfront distribution](https://github.com/aakash1003/terraform_with_AWS/blob/master/img-7.PNG)
 
 
 
@@ -324,20 +329,6 @@ For this you have to install the terraform
 
 * If want to destroy the environment terraform destroy -auto-approve
 
-## Some more SS for reference:
+![final output](https://github.com/aakash1003/terraform_with_AWS/blob/master/img-8.PNG)
 
 
-
-
-
-
-
-
-
-
-Built With
-Terraform
-AWS
-Git & GitHub
-Author
-SAURAV PATEL
