@@ -27,61 +27,57 @@ Initial steps:
 Step 1: Creating the key and security group:
 * key-pair:
 ```
-resource "tls_private_key" "taskkey" {
+resource "tls_private_key" "key1" {
  algorithm = "RSA"
  rsa_bits = 4096
 }
 
-resource "aws_key_pair" "key" {
- key_name = "task1key"
- public_key = "${tls_private_key.taskkey.public_key_openssh}"
- depends_on = [
-    tls_private_key.taskkey
-    ]
+resource "local_file" "key2" {
+ content = "${tls_private_key.key1.private_key_pem}"
+ filename = "task1_key.pem"
+ file_permission = 0400
 }
 
-resource "local_file" "key1" {
- content = "${tls_private_key.taskkey.private_key_pem}"
- filename = "task1key.pem"
-  depends_on = [
-    aws_key_pair.key
-   ]
+resource "aws_key_pair" "key3" {
+ key_name = "task1_key"
+ public_key = "${tls_private_key.key1.public_key_openssh}"
 }
+
 ```
 ![key pair](https://github.com/aakash1003/terraform_with_AWS/blob/master/img-1.PNG)
 
 * security-group:
 ```
-resource "aws_security_group" "new" {
-  name        = "task1sg"
- 
-  ingress {
-    description = "TCP"
-    from_port   = 80	
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-}
+resource "aws_security_group" "terraSG" {
+  name        = "terraSG"
+  description = "Allow TLS inbound traffic"
+  vpc_id      = "vpc-0591a26d"
 
- ingress {
+  ingress {
     description = "SSH"
-    from_port   = 22	
+    from_port   = 22
     to_port     = 22
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
+  }
 
-}
+  ingress {
+    description = "HTTP"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
 
-
- egress {
-    from_port   = 0	
+  egress {
+    from_port   = 0
     to_port     = 0
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
+  }
 
-}  
   tags = {
-    Name = "task1sg"
+    Name = "terraSG"
   }
 }
 ```
@@ -92,16 +88,21 @@ resource "aws_security_group" "new" {
 ## Step 2 and 3: Launcing the EC2 with the key and security group made in step 1:
 ```
 resource "aws_instance" "web" {
+
+depends_on = [
+    aws_security_group.terraSG,
+  ]
+
   ami           = "ami-0447a12f28fddb066"
   instance_type = "t2.micro"
-  key_name = "task1key"
-  security_groups = [ "task1sg" ]
-  
+  key_name = "task1_key"
+  security_groups = [ "terraSG" ]
+
   connection {
     type     = "ssh"
     user     = "ec2-user"
-    private_key = "${tls_private_key.taskkey.private_key_pem}"
-    host     = aws_instance.web.public_ip
+    private_key = "${tls_private_key.key1.private_key_pem}"
+    host     = "${aws_instance.web.public_ip}"
   }
 
   provisioner "remote-exec" {
@@ -113,15 +114,9 @@ resource "aws_instance" "web" {
   }
 
   tags = {
-    Name = "sara16paly"
+    Name = "AkOS1"
   }
-  depends_on = [
-    local_file.key1,
-    aws_s3_bucket_object.image,
-    aws_security_group.new,
-    aws_cloudfront_distribution.s3
-]
-    
+
 }
 ```
 
@@ -132,18 +127,28 @@ resource "aws_instance" "web" {
 ```
 resource "aws_ebs_volume" "esb1" {
   availability_zone = aws_instance.web.availability_zone
-  size              = 1 
+  size              = 1
   tags = {
-    Name = "ebs1"
+    Name = "ebs-vol-1"
   }
 }
-
 
 resource "aws_volume_attachment" "ebs_att" {
   device_name = "/dev/sdh"
   volume_id   = "${aws_ebs_volume.esb1.id}"
   instance_id = "${aws_instance.web.id}"
   force_detach = true
+}
+
+output "myos_ip" {
+  value = aws_instance.web.public_ip
+}
+
+
+resource "null_resource" "nulllocal2"  {
+	provisioner "local-exec" {
+	    command = "echo  ${aws_instance.web.public_ip} > publicip.txt"
+  	}
 }
 
 resource "null_resource" "nullremote3"  {
@@ -156,8 +161,8 @@ depends_on = [
   connection {
     type     = "ssh"
     user     = "ec2-user"
-    private_key = "${tls_private_key.taskkey.private_key_pem}"
-    host     = aws_instance.web.public_ip
+    private_key = "${tls_private_key.key1.private_key_pem}"
+    host     = "${aws_instance.web.public_ip}"
   }
 
 provisioner "remote-exec" {
@@ -165,110 +170,104 @@ provisioner "remote-exec" {
       "sudo mkfs.ext4  /dev/xvdh",
       "sudo mount  /dev/xvdh  /var/www/html",
       "sudo rm -rf /var/www/html/*",
-      "sudo git clone https://github.com/sara16play/task1cloud.git /var/www/html/"
+      "sudo git clone https://github.com/aakash1003/terraform_prac.git /var/www/html/",
+     "sudo su << EOF",
+            "echo \"${aws_cloudfront_distribution.s3_distribution.domain_name}\" >> /var/www/html/path.txt",
+            "EOF",
+     "sudo systemctl restart httpd"
     ]
   }
 }
+
+
+resource "null_resource" "nulllocal1"  {
+
+
+depends_on = [
+    null_resource.nullremote3,
+  ]
+
+	provisioner "local-exec" {
+	    command = "start chrome  ${aws_instance.web.public_ip}"
+  	}
+}
+
 ```
 
 ![ebs volume](https://github.com/aakash1003/terraform_with_AWS/blob/master/img-5.PNG)
 
 ## Step 7: Create S3 bucket, and copy/deploy the images from github repo into the s3 bucket and change the permission to public readable.
 ```
-resource "aws_s3_bucket" "new" {
-  bucket = "saratask1play"
+resource "aws_s3_bucket" "bucket-01" {
+  bucket = "terra-test-bucket"
   acl    = "public-read"
-  force_destroy = "true"
+
+  tags = {
+    Name        = "My bucket"
+    Environment = "Dev"
+  }
 }
 
-resource "null_resource" "null2"  {
+resource "null_resource" "images_repo" {
   provisioner "local-exec" {
-      command = "git clone https://github.com/sara16play/task1cloud.git code/"
+    command = "git clone https://github.com/aakash1003/my_images.git my_images"
+  }
+  provisioner "local-exec"{ 
+  when        =   destroy
+        command     =   "rm -rf my_images"
     }
 }
 
-resource "aws_s3_bucket_object" "image" {
-  bucket = "${aws_s3_bucket.new.id}"
-  key    = "sara.jpg"
-  source = "code/sara.jpg"
-  acl = "public-read"
-  depends_on = [
-    aws_s3_bucket.new
-]
+resource "aws_s3_bucket_object" "web-object1" {
+  bucket = "${aws_s3_bucket.bucket-01.bucket}"
+  key    = "ak.jpg"
+  source = "my_images/ak.jpg"
+  acl    = "public-read"
 }
+
 ```
 
 ![s3 bucket](https://github.com/aakash1003/terraform_with_AWS/blob/master/img-6.PNG)
 
 ## Step 8: Create a Cloudfront using s3 bucket(which contains images) and use the Cloudfront URL to update in code in /var/www/html
 ```
-resource "aws_cloudfront_distribution" "s3" {
-depends_on = [ aws_s3_bucket_object.image]  
-origin {
-    domain_name = "${aws_s3_bucket.new.bucket_regional_domain_name}"
-    origin_id   = "${aws_s3_bucket.new.id}"
-    
-    
-custom_origin_config {
+resource "aws_cloudfront_distribution" "s3_distribution" {
+  origin {
+    domain_name = aws_s3_bucket.bucket-01.bucket_regional_domain_name
+    origin_id   = aws_s3_bucket.bucket-01.id
+ 
+     custom_origin_config {
             http_port = 80
-            https_port = 80
+            https_port = 443
             origin_protocol_policy = "match-viewer"
             origin_ssl_protocols = ["TLSv1", "TLSv1.1", "TLSv1.2"]
-     }
-}
-
+        }
+  }
   enabled             = true
   is_ipv6_enabled     = true
-  comment             = "hello"
-
-  default_cache_behavior {
+  comment             = "Some comment"
+default_cache_behavior {
     allowed_methods  = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
     cached_methods   = ["GET", "HEAD"]
-    target_origin_id = "${aws_s3_bucket.new.id}"
-
-    forwarded_values {
+    target_origin_id = aws_s3_bucket.bucket-01.id
+forwarded_values {
       query_string = false
-
-      cookies {
+cookies {
         forward = "none"
       }
     }
-
-    viewer_protocol_policy = "allow-all"
-    min_ttl                = 0
-    default_ttl            = 3600
-    max_ttl                = 86400
+   viewer_protocol_policy = "allow-all"
   }
-
+ price_class = "PriceClass_200"
 restrictions {
-    geo_restriction {
-      restriction_type = "whitelist"
-      locations        = ["US", "CA", "GB", "DE", "IN"]
+        geo_restriction {
+        restriction_type = "none"
+        }
     }
-  }
-
-  viewer_certificate {
+ viewer_certificate {
     cloudfront_default_certificate = true
   }
-}
-
-resource "null_resource" "nullRemote40" {
-   depends_on = [aws_cloudfront_distribution.s3,
-                 aws_instance.web,
-                 null_resource.nullremote3]
-	connection {
-    type     = "ssh"
-    user     = "ec2-user"
-    private_key = "${tls_private_key.taskkey.private_key_pem}"
-    host     = aws_instance.web.public_ip
-    	}
-
-
-	provisioner "remote-exec" {
-		inline = [
-			"sudo sed -i 's@path@https://${aws_cloudfront_distribution.s3.domain_name}/${aws_s3_bucket_object.image.key}@g' /var/www/html/index.html"
-		]
-	}
+ 
 }
 
 ```
@@ -277,44 +276,19 @@ resource "null_resource" "nullRemote40" {
 
 
 
-* You can see the src in image tag is using the cloudfront url
 
-Extra:
-* To run the aws instance directly from terraform:
+
+## Step 9: Create a snapshot (backup) of EBS volume created
 ```
-resource "null_resource" "nulllocal1"  {
+resource "aws_ebs_snapshot" "snapshot1" {
+  volume_id = aws_ebs_volume.esb1.id
 
 
-depends_on = [
-    null_resource.nullremote3,
-     aws_instance.web
-  ]
-
-	provisioner "local-exec" {
-	    command = "chrome  ${aws_instance.web.public_ip}"
-  	}
-
-}
-```
-
-* In this the image is coming from the cloudfront url.
-
-* To delete the github files once they have copied to the s3:
-```
-
-resource "null_resource" "nulllocal10"  {
-
-
-depends_on = [
-    null_resource.nullremote3,
-     aws_instance.web
-  ]
-
-provisioner "local-exec"{
- command  =   "rd /s /q code"
+  tags = {
+    Name = "snap1"
+  }
 }
 
-}
 ```
 ## After putting these code in onc file of .tf extension run this file
 For this you have to install the terraform
